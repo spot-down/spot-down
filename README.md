@@ -102,6 +102,15 @@ python main.py --stage 3 --stage 4  # Download and tag only
 
 All stages track progress in `state.json` and automatically resume from the last processed track on restart.
 
+### Scan and Remove Duplicates
+
+```bash
+python deduplicate.py              # Scan for duplicates (report only)
+python deduplicate.py --remove     # Remove duplicate track IDs
+```
+
+Scans across metadata/, data/, songs_index.csv, and state.json for duplicate track IDs and removes them (keeps first occurrence, removes rest).
+
 ## Input Data
 
 ### Track List
@@ -245,6 +254,7 @@ Safely delete `state.json` to restart the entire pipeline from scratch.
 - `spotify_upgrade.py` - Stage 2: API optimization and validation
 - `downloader.py` - Stage 3: YouTube download and basic tagging
 - `tagger.py` - Stage 4: File rename and ID3 v2.4 tagging
+- `deduplicate.py` - Scan and remove duplicate track IDs across all directories
 
 ### Data Files
 
