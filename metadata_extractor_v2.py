@@ -4,6 +4,7 @@ import csv
 import requests
 import time
 from datetime import datetime
+from pathlib import Path
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
 from spotipy.exceptions import SpotifyException
@@ -12,6 +13,7 @@ INPUT_FILE = "song_sources.txt"
 INDEX_FILE = "songs_index.csv"
 BASE_DIR = "metadata"
 STATE_FILE = "state.json"
+CONFIG_FILE = "config.json"
 BATCH_SIZE = 50
 
 # ========================
@@ -37,9 +39,26 @@ def load_state():
     return {}
 
 def save_state(state):
-    """Save state to JSON"""
+    """Save state to JSON file"""
     with open(STATE_FILE, 'w', encoding='utf-8') as f:
         json.dump(state, f, indent=2)
+
+def load_config():
+    """Load configuration from config.json"""
+    defaults = {"metadata": {"sources": ["spotify", "musicbrainz"]}}
+    
+    if not Path(CONFIG_FILE).exists():
+        return defaults
+    
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        if "metadata" not in config:
+            config["metadata"] = defaults["metadata"]
+        return config
+    except Exception as e:
+        print(f"Warning: Failed to load config.json: {e}")
+        return defaults
 
 def load_existing_ids():
     """Load already-processed track IDs"""
@@ -185,7 +204,13 @@ def download_cover(url, path):
 # MAIN EXTRACTOR
 # ========================
 def main():
-    print("Starting metadata extraction (Spotify API + MusicBrainz)...\n")
+    config = load_config()
+    metadata_sources = config["metadata"]["sources"]
+    
+    use_musicbrainz = "musicbrainz" in metadata_sources
+    sources_str = " + ".join(s.title() for s in metadata_sources)
+    
+    print(f"Starting metadata extraction ({sources_str})...\n")
     
     os.makedirs(BASE_DIR, exist_ok=True)
     
@@ -307,8 +332,8 @@ def main():
                 if spotify_track.get("album", {}).get("images"):
                     meta["cover_url"] = spotify_track["album"]["images"][0]["url"]
                 
-                # Enrich with MusicBrainz
-                if meta["artist"] and meta["title"]:
+                # Enrich with MusicBrainz if configured
+                if use_musicbrainz and meta["artist"] and meta["title"]:
                     mb_data = get_metadata_musicbrainz(meta["artist"][0], meta["title"])
                     if mb_data:
                         if mb_data.get("album") and not meta["album"]:

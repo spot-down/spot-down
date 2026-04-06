@@ -1,0 +1,10 @@
+{
+  "metadata": {
+    "sources": ["spotify", "musicbrainz"],
+    "description": "Metadata sources: 'spotify' only, or ['spotify', 'musicbrainz'] for enrichment"
+  },
+  "pipeline": {
+    "default_stages": [1, 3, 4],
+    "description": "Stages to run when no --stage arguments provided. Example: [1, 3, 4] or [1, 2, 3, 4]"
+  }
+}

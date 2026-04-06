@@ -15,6 +15,7 @@ Usage:
 import sys
 import argparse
 import subprocess
+import json
 from pathlib import Path
 
 def run_stage(stage_num):
@@ -22,7 +23,7 @@ def run_stage(stage_num):
     
     if stage_num == 1:
         print("\n" + "="*70)
-        print("STAGE 1: METADATA EXTRACTION (MusicBrainz + Spotify pending)")
+        print("STAGE 1: METADATA EXTRACTION (Spotify API + MusicBrainz)")
         print("="*70)
         result = subprocess.run([sys.executable, "metadata_extractor_v2.py"])
         return result.returncode == 0
@@ -58,19 +59,51 @@ def run_stage(stage_num):
         print(f"Unknown stage: {stage_num}")
         return False
 
+def load_config():
+    """Load configuration from config.json"""
+    config_file = "config.json"
+    defaults = {
+        "metadata": {"sources": ["spotify", "musicbrainz"]},
+        "pipeline": {"default_stages": [1, 3, 4]}
+    }
+    
+    if not Path(config_file).exists():
+        return defaults
+    
+    try:
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        # Merge with defaults to handle missing keys
+        if "metadata" not in config:
+            config["metadata"] = defaults["metadata"]
+        if "pipeline" not in config:
+            config["pipeline"] = defaults["pipeline"]
+        return config
+    except Exception as e:
+        print(f"Warning: Failed to load config.json: {e}")
+        return defaults
+
 def main():
+    config = load_config()
+    default_stages = config["pipeline"]["default_stages"]
+    
     parser = argparse.ArgumentParser(
         description="spotify-sync orchestrator",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python main.py                    # Run default stages (1, 3, 4)
+  python main.py                    # Run default stages from config.json
   python main.py --stage 1          # Metadata extraction only
   python main.py --stage 2          # Spotify upgrade only (optional)
   python main.py --stage 3          # Download only
   python main.py --stage 4          # Rename and tag only
   python main.py --stage 1 --stage 2 --stage 3 --stage 4  # Run all stages
   python main.py --stage 3 --stage 4  # Download and tag
+
+Configuration:
+  Edit config.json to change:
+    - Default stages to run
+    - Metadata sources (spotify only, or spotify + musicbrainz)
         """
     )
     
@@ -84,12 +117,13 @@ Examples:
     
     args = parser.parse_args()
     
-    # If no stages specified, run default stages (skip Stage 2: Spotify upgrade)
-    stages_to_run = args.stage if args.stage else [1, 3, 4]
+    # If no stages specified, use config default
+    stages_to_run = args.stage if args.stage else default_stages
     
     print("\n" + "="*70)
     print(f"spotify-sync PIPELINE")
     print(f"Stages to run: {stages_to_run}")
+    print(f"Metadata sources: {config['metadata']['sources']}")
     print("="*70)
     
     success_count = 0

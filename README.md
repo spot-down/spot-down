@@ -44,6 +44,33 @@ Required for Stage 1 (metadata extraction):
 
 Obtain these from [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
 
+## Configuration
+
+Edit `config.json` to customize pipeline behavior:
+
+```json
+{
+  "metadata": {
+    "sources": ["spotify", "musicbrainz"]
+  },
+  "pipeline": {
+    "default_stages": [1, 3, 4]
+  }
+}
+```
+
+### Configuration Options
+
+**metadata.sources** - Which data sources to use for metadata extraction:
+- `["spotify"]` - Use only Spotify API (faster, requires credentials)
+- `["spotify", "musicbrainz"]` - Use Spotify API + MusicBrainz enrichment (default, slower but more complete metadata)
+
+**pipeline.default_stages** - Stages to run when no `--stage` arguments provided:
+- `[1, 3, 4]` - Default: extract metadata, download, rename/tag (skips Stage 2)
+- `[1, 2, 3, 4]` - Run all stages including Spotify upgrade
+- `[1]` - Run only metadata extraction
+- Any combination: `[3, 4]`, `[1, 2, 3]`, etc.
+
 ## Usage
 
 ### Run Default Pipeline
