@@ -244,7 +244,7 @@ Safely delete `state.json` to restart the entire pipeline from scratch.
 - `metadata_extractor_v2.py` - Stage 1: Spotify metadata extraction
 - `spotify_upgrade.py` - Stage 2: API optimization and validation
 - `downloader.py` - Stage 3: YouTube download and basic tagging
-- `tagger.py` - Stage 4: File rename and comprehensive ID3 tagging
+- `tagger.py` - Stage 4: File rename and ID3 v2.4 tagging
 
 ### Data Files
 
