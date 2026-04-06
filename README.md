@@ -1,6 +1,6 @@
 # spotify-sync
 
-Pipeline to extract music metadata from Spotify and download tracks with comprehensive ID3 tagging.
+Pipeline to extract music metadata from Spotify and download tracks with ID3 tagging.
 
 ## Pipeline Overview
 
