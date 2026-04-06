@@ -202,6 +202,7 @@ def main():
             "last_downloaded_id": None,
             "downloaded_count": 0,
             "failed_downloads": [],
+            "permanent_failures": [],
             "last_error": None,
             "timestamp": None
         }
@@ -215,6 +216,19 @@ def main():
     if not rows:
         print("No rows to download!")
         return
+    
+    # On fresh run (no last_downloaded_id), clear transient failures
+    # This allows retrying failed tracks on next run
+    if not dl_state["last_downloaded_id"]:
+        # First run - start fresh
+        initial_run = True
+    else:
+        # Resuming - preserve state but clear transient failures for retry
+        initial_run = False
+        print(f"Resuming from: {dl_state['last_downloaded_id']}")
+        print(f"Previous run had {len(dl_state['failed_downloads'])} failures\n")
+        # Move failed_downloads to pending retry, but keep permanent failures
+        dl_state["failed_downloads"] = []
     
     # Resume from last processed track
     start_idx = 0
@@ -243,10 +257,15 @@ def main():
             dl_state["downloaded_count"] += 1
             dl_state["timestamp"] = datetime.now().isoformat()
             
+            # If this was a previously failed track, remove from permanent failures
+            if track_id in dl_state.get("permanent_failures", []):
+                dl_state["permanent_failures"].remove(track_id)
+            
             print("OK")
             
         except Exception as e:
             print(f"ERROR: {e}")
+            # Track immediate failures for this run
             dl_state["failed_downloads"].append(track_id)
             dl_state["last_error"] = str(e)
         
@@ -257,7 +276,19 @@ def main():
     print(f"\nDownload complete!")
     print(f"Downloaded: {dl_state['downloaded_count']}")
     if dl_state['failed_downloads']:
-        print(f"Failed: {len(dl_state['failed_downloads'])}")
+        print(f"Failed this run: {len(dl_state['failed_downloads'])}")
+    if dl_state.get('permanent_failures'):
+        print(f"Permanent failures: {len(dl_state['permanent_failures'])}")
+    
+    # Move current failures to permanent if they persist
+    if dl_state['failed_downloads']:
+        for track_id in dl_state['failed_downloads']:
+            if track_id not in dl_state.get('permanent_failures', []):
+                if 'permanent_failures' not in dl_state:
+                    dl_state['permanent_failures'] = []
+                dl_state['permanent_failures'].append(track_id)
+        # Clear for next run's fresh attempt
+        dl_state['failed_downloads'] = []
     
     save_state(state)
 
