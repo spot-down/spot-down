@@ -76,3 +76,6 @@ test_metadata_extractor.py
 # Cache
 .cache
 .pytest_cache/
+
+#nohup
+nohup.out
