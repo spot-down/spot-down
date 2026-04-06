@@ -31,6 +31,7 @@ metadata/
 songs_index.csv
 songs_index.jsonl
 state.json
+song_sources.txt
 
 # Logs
 *.log
@@ -47,7 +48,7 @@ verify_setup.py
 .DS_Store
 ._.DS_Store
 
-# Credentials (NEVER commit)
+# Credentials
 .env
 SPOTIPY_CLIENT_ID
 SPOTIPY_CLIENT_SECRET
