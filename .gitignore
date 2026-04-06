@@ -1,0 +1,77 @@
+# Virtual environments
+venv/
+env/
+.venv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Project-specific data
+data/
+metadata/
+songs_index.csv
+songs_index.jsonl
+state.json
+
+# Logs
+*.log
+stage1_retry.log
+nohup.out
+
+# Test and temporary files
+*test*
+export.txt
+song_sources_test.txt
+test_sources.txt
+cleanup_failed.py
+verify_setup.py
+.DS_Store
+._.DS_Store
+
+# Credentials (NEVER commit)
+.env
+SPOTIPY_CLIENT_ID
+SPOTIPY_CLIENT_SECRET
+credentials.json
+*.pem
+*.key
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.editorconfig
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Legacy/deprecated files
+metadata-extractor.py
+metadata-spotify-api.py
+test_metadata_extractor.py
+
+# Cache
+.cache
+.pytest_cache/
