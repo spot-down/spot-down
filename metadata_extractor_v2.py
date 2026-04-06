@@ -61,14 +61,22 @@ def load_config():
         return defaults
 
 def load_existing_ids():
-    """Load already-processed track IDs"""
+    """Load already-processed track IDs with their status"""
     ids = set()
+    id_status = {}
     if os.path.exists(INDEX_FILE):
         with open(INDEX_FILE, 'r', newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 ids.add(row["id"])
-    return ids
+                id_status[row["id"]] = row.get("status", "unknown")
+    return ids, id_status
+
+def is_metadata_already_fetched(track_id, id_status):
+    """Check if metadata was already fetched from Spotify"""
+    status = id_status.get(track_id, "unknown")
+    # Skip if status is anything but 'pending'
+    return status != "pending" and status != "unknown"
 
 def append_to_csv(row):
     """Append row to CSV index"""
@@ -248,16 +256,16 @@ def main():
         links = list(set(l.strip() for l in f if l.strip()))
     
     print(f"Total tracks to process: {len(links)}")
-    print(f"Already processed: {len(load_existing_ids())}\n")
+    print(f"Already processed: {len(load_existing_ids()[0])}\n")
     
-    existing_ids = load_existing_ids()
+    existing_ids, id_status = load_existing_ids()
     
     # Extract IDs
     id_to_link = {}
     for link in links:
         try:
             tid = extract_id(link)
-            if tid and tid not in existing_ids:
+            if tid and not is_metadata_already_fetched(tid, id_status):
                 id_to_link[tid] = link
         except:
             continue
@@ -366,7 +374,7 @@ def main():
                     "album": meta.get("album", ""),
                     "meta_path": json_path,
                     "source": "spotify_api",
-                    "status": "success"
+                    "status": "spotify_metadata_fetched"
                 })
                 
                 # Update state

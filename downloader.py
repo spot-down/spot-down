@@ -239,6 +239,26 @@ def load_index():
     else:
         raise Exception("Unsupported index format")
 
+def update_csv_status(track_id, new_status):
+    """Update the status column in the CSV for a track"""
+    try:
+        rows = []
+        with open(INDEX_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("id") == track_id:
+                    row["status"] = new_status
+                rows.append(row)
+        
+        # Write back
+        if rows:
+            with open(INDEX_FILE, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+                writer.writeheader()
+                writer.writerows(rows)
+    except Exception as e:
+        print(f"Warning: Failed to update CSV status: {e}")
+
 # ========================
 # MAIN
 # ========================
@@ -291,6 +311,20 @@ def main():
     # Process each track
     for idx, item in enumerate(rows[start_idx:], start=start_idx):
         track_id = item["id"]
+        track_status = item.get("status", "unknown")
+        
+        # Skip if already processed (downloaded or tagged)
+        if track_status in ["downloaded", "tagged"]:
+            print(f"[{idx+1}/{len(rows)}] {track_id}...", end=" ", flush=True)
+            print(f"SKIP ({track_status})")
+            continue
+        
+        # Skip if previously failed at download
+        if track_status == "download_failed":
+            print(f"[{idx+1}/{len(rows)}] {track_id}...", end=" ", flush=True)
+            print(f"SKIP (download_failed)")
+            continue
+        
         print(f"[{idx+1}/{len(rows)}] {track_id}...", end=" ", flush=True)
         
         try:
@@ -301,6 +335,9 @@ def main():
                 meta = json.load(mf)
 
             download_track(meta, track_folder)
+            
+            # Update CSV status to reflect successful download
+            update_csv_status(track_id, "downloaded")
             
             # Update state on success
             dl_state["last_downloaded_id"] = track_id
