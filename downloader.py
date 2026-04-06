@@ -3,6 +3,7 @@ import json
 import yt_dlp
 import subprocess
 import csv
+import re
 import time
 from datetime import datetime
 from mutagen.mp3 import MP3
@@ -111,6 +112,54 @@ def find_best_match(query, expected_duration):
 
     return best["webpage_url"] if best else None
 
+# ========================
+# DUPLICATE DETECTION
+# ========================
+def is_track_already_downloaded(track_id, meta):
+    """Check if track is already downloaded in any form
+    
+    Checks:
+    1. File exists by track ID: data/{track_id}.mp3
+    2. File exists by renamed name: data/Artist - Title.mp3
+    3. CSV index shows download status
+    
+    Args:
+        track_id: Spotify track ID
+        meta: Metadata dict with title, artist info
+    
+    Returns:
+        True if track already exists, False otherwise
+    """
+    # Check 1: File exists by ID
+    id_file = os.path.join(OUTPUT_DIR, f"{track_id}.mp3")
+    if os.path.exists(id_file):
+        return True
+    
+    # Check 2: File exists by renamed name (Artist - Title.mp3)
+    if "artist" in meta and "title" in meta:
+        artist = meta["artist"][0] if isinstance(meta["artist"], list) else meta["artist"]
+        # Sanitize filename same way tagger.py does
+        invalid_chars = r'[<>:"/\\|?*]'
+        filename = f"{artist} - {meta['title']}"
+        filename = re.sub(invalid_chars, '', filename)
+        filename = filename.strip('. ')
+        filename = re.sub(r'\s+', ' ', filename)
+        renamed_file = os.path.join(OUTPUT_DIR, f"{filename}.mp3")
+        
+        if os.path.exists(renamed_file):
+            return True
+    
+    # Check 3: Verify CSV index doesn't already have this track as downloaded
+    if os.path.exists(INDEX_FILE):
+        with open(INDEX_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("id") == track_id:
+                    # Track is in index - assume already processed
+                    return True
+    
+    return False
+
 # ------------------------
 # DOWNLOAD
 # ------------------------
@@ -124,7 +173,8 @@ def download_track(meta, track_folder):
     output_file = os.path.join(OUTPUT_DIR, f"{meta['id']}.mp3")
     cover_path = os.path.join(track_folder, "cover.jpg")
 
-    if os.path.exists(output_file):
+    # Skip if already downloaded in any form
+    if is_track_already_downloaded(meta['id'], meta):
         return
 
     url = find_best_match(meta["search_query"], meta["duration_ms"])
