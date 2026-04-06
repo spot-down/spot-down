@@ -265,8 +265,9 @@ def main():
             
         except Exception as e:
             print(f"ERROR: {e}")
-            # Track immediate failures for this run
-            dl_state["failed_downloads"].append(track_id)
+            # Track immediate failures for this run (avoid duplicates)
+            if track_id not in dl_state["failed_downloads"]:
+                dl_state["failed_downloads"].append(track_id)
             dl_state["last_error"] = str(e)
         
         # Save state after each track
