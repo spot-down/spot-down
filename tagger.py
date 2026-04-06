@@ -48,13 +48,13 @@ def sanitize_filename(filename):
 # ID3 TAGGING
 # ========================
 def apply_id3_tags(file_path, meta, cover_path=None):
-    """Apply comprehensive ID3 v2.4 tags to MP3 file
-    
-    Args:
-        file_path: Path to MP3 file
-        meta: Metadata dictionary from meta.json
-        cover_path: Path to cover image (optional)
-    """
+     """Apply ID3 v2.4 tags to MP3 file
+     
+     Args:
+         file_path: Path to MP3 file
+         meta: Metadata dictionary from meta.json
+         cover_path: Path to cover image (optional)
+     """
     try:
         audio = MP3(file_path, ID3=ID3)
     except:

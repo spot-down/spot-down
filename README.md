@@ -1,15 +1,15 @@
 # spotify-sync
 
-Production-ready pipeline to extract music metadata from Spotify and synchronize tracks to Navidrome music server.
+Pipeline to extract music metadata from Spotify and download tracks with comprehensive ID3 tagging.
 
 ## Pipeline Overview
 
-The pipeline consists of 4 stages that progressively process tracks from metadata extraction through download to final tagging:
+The pipeline consists of 4 stages that process tracks from metadata extraction through download to final tagging:
 
-1. **Stage 1: Metadata Extraction** - Extract track metadata from Spotify API with MusicBrainz enrichment
+1. **Stage 1: Metadata Extraction** - Extract track metadata from Spotify API with optional MusicBrainz enrichment
 2. **Stage 2: Spotify Upgrade** (Optional) - API validation and batch processing optimization
 3. **Stage 3: Download** - Download MP3 files from YouTube using yt-dlp with basic ID3 tagging
-4. **Stage 4: Rename and Tag** - Rename files to `Artist - Title.mp3` format and apply comprehensive ID3 v2.4 tags with album artwork
+4. **Stage 4: Rename and Tag** - Rename files to `Artist - Title.mp3` format and apply ID3 v2.4 tags with album artwork
 
 By default, Stages 1, 3, and 4 run automatically. Stage 2 is optional and can be run independently if needed.
 
