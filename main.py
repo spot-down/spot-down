@@ -4,7 +4,7 @@ Main orchestrator for spotify-sync pipeline.
 Run individual stages or the full pipeline.
 
 Usage:
-  python main.py                    # Run all stages sequentially
+  python main.py                    # Run default stages (extract, download, tag)
   python main.py --stage 1          # Run metadata extraction only
   python main.py --stage 2          # Run Spotify upgrade only
   python main.py --stage 3          # Run download only
@@ -64,12 +64,12 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python main.py                    # Run all stages (metadata, upgrade, download, tag)
+  python main.py                    # Run default stages (1, 3, 4)
   python main.py --stage 1          # Metadata extraction only
-  python main.py --stage 2          # Spotify upgrade only  
+  python main.py --stage 2          # Spotify upgrade only (optional)
   python main.py --stage 3          # Download only
   python main.py --stage 4          # Rename and tag only
-  python main.py --stage 2 --stage 3  # Upgrade and download
+  python main.py --stage 1 --stage 2 --stage 3 --stage 4  # Run all stages
   python main.py --stage 3 --stage 4  # Download and tag
         """
     )
@@ -84,8 +84,8 @@ Examples:
     
     args = parser.parse_args()
     
-    # If no stages specified, run all
-    stages_to_run = args.stage if args.stage else [1, 2, 3, 4]
+    # If no stages specified, run default stages (skip Stage 2: Spotify upgrade)
+    stages_to_run = args.stage if args.stage else [1, 3, 4]
     
     print("\n" + "="*70)
     print(f"spotify-sync PIPELINE")
