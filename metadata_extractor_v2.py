@@ -14,7 +14,7 @@ INDEX_FILE = "songs_index.csv"
 BASE_DIR = "metadata"
 STATE_FILE = "state.json"
 CONFIG_FILE = "config.json"
-BATCH_SIZE = 50
+BATCH_SIZE = 50  # Default, will be overridden by config.json
 
 # ========================
 # HELPERS
@@ -212,8 +212,14 @@ def download_cover(url, path):
 # MAIN EXTRACTOR
 # ========================
 def main():
+    global BATCH_SIZE
     config = load_config()
     metadata_sources = config["metadata"]["sources"]
+    
+    # Load batch size from config if available
+    if "batch_size" in config.get("metadata", {}):
+        BATCH_SIZE = config["metadata"]["batch_size"]
+        print(f"Batch size from config: {BATCH_SIZE}")
     
     use_musicbrainz = "musicbrainz" in metadata_sources
     sources_str = " + ".join(s.title() for s in metadata_sources)

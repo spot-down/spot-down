@@ -51,7 +51,8 @@ Edit `config.json` to customize pipeline behavior:
 ```json
 {
   "metadata": {
-    "sources": ["spotify", "musicbrainz"]
+    "sources": ["spotify", "musicbrainz"],
+    "batch_size": 50
   },
   "pipeline": {
     "default_stages": [1, 3, 4]
@@ -64,6 +65,10 @@ Edit `config.json` to customize pipeline behavior:
 **metadata.sources** - Which data sources to use for metadata extraction:
 - `["spotify"]` - Use only Spotify API (faster, requires credentials)
 - `["spotify", "musicbrainz"]` - Use Spotify API + MusicBrainz enrichment (default, slower but more complete metadata)
+
+**metadata.batch_size** - Number of tracks per Spotify API batch request:
+- Default: `50` - Reasonable batch size for most rate limit scenarios
+- Range: `1-50` - Adjust based on your rate limit quota (lower = safer)
 
 **pipeline.default_stages** - Stages to run when no `--stage` arguments provided:
 - `[1, 3, 4]` - Default: extract metadata, download, rename/tag (skips Stage 2)
@@ -101,6 +106,18 @@ python main.py --stage 3 --stage 4  # Download and tag only
 ### Resume from Interruption
 
 All stages track progress in `state.json` and automatically resume from the last processed track on restart.
+
+### Smart Resumption (Status-Based)
+
+The pipeline uses granular track status values in `songs_index.csv` to intelligently skip redundant work:
+
+- **Metadata Extractor** - Skips tracks with `spotify_metadata_fetched` or later status, avoiding redundant Spotify API calls
+- **Downloader** - Skips tracks with `downloaded` or `tagged` status, preventing duplicate downloads
+- **Each stage** - Only processes tracks that haven't reached its completion status
+
+This enables efficient resumption even after long interruptions without repeating work that was already completed.
+
+Example: If 70 tracks are already "tagged" and 3 are "spotify_metadata_fetched", running the downloader will skip the 70 completed tracks and only attempt to download the 3 pending ones.
 
 ### Scan and Remove Duplicates
 
@@ -143,12 +160,19 @@ state.json            # Pipeline state and progress tracking
 
 ### CSV Index
 
-The `songs_index.csv` file tracks all processed tracks:
+The `songs_index.csv` file tracks all processed tracks with their current pipeline status:
 
 ```
 id,title,artist,album,meta_path,source,status
-6hFi0gXP8KItwMqfBgf44b,"Bad Liar – Stripped","Imagine Dragons",...,metadata/Imagine Dragons/.../meta.json,spotify_api,success
+6hFi0gXP8KItwMqfBgf44b,"Bad Liar – Stripped","Imagine Dragons",...,metadata/Imagine Dragons/.../meta.json,spotify_api,tagged
 ```
+
+**Status Values** - Indicates current stage of track processing:
+- `spotify_metadata_fetched` - Spotify API called, metadata extracted but not downloaded
+- `downloaded` - MP3 file downloaded from YouTube but not yet tagged/renamed
+- `tagged` - File renamed to `Artist - Title.mp3` format and ID3 tags applied (complete)
+- `download_failed_tagging` - Failed during tagging/renaming stage
+- `download_failed` - Failed during download stage (YouTube search/availability issues)
 
 ### Metadata Format (meta.json)
 
@@ -177,11 +201,19 @@ id,title,artist,album,meta_path,source,status
 ## Performance
 
 Current pipeline status:
-- **Total Tracks**: 94
-- **Successfully Downloaded**: 69 (73%)
-- **Failed Downloads**: 25 (mostly YouTube search/availability issues)
-- **Stage 1 Duration**: ~2 minutes for 94 tracks
-- **Stage 3 Duration**: ~15 minutes for 69 downloads
+- **Total Tracks**: 145
+- **Metadata Extracted**: 145 (100%)
+- **Successfully Tagged**: 72 (50%)
+- **Failed at Tagging**: 22 (15%)
+- **Pending Download**: 51 (35%)
+- **Smart Resumption**: Skips redundant work based on track status
+
+### Efficiency Improvements
+
+With status-based resumption:
+- **No redundant Spotify API calls** - Tracks with `spotify_metadata_fetched` status are skipped
+- **No duplicate downloads** - Tracks with `tagged` or `downloaded` status are skipped
+- **Faster re-runs** - Each stage checks status before processing, enabling efficient resumption
 
 ### Rate Limiting
 

@@ -1,7 +1,8 @@
 {
   "metadata": {
     "sources": ["spotify", "musicbrainz"],
-    "description": "Metadata sources: 'spotify' only, or ['spotify', 'musicbrainz'] for enrichment"
+    "batch_size": 50,
+    "description": "Metadata sources: 'spotify' only, or ['spotify', 'musicbrainz'] for enrichment. batch_size: number of tracks per Spotify API batch request"
   },
   "pipeline": {
     "default_stages": [1, 3, 4],
