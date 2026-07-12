@@ -1,12 +1,10 @@
 {
   "provider": "spotify_scraper",
-  "musicbrainz": true,
   "metadata": {
-    "batch_size": 50,
-    "description": "batch_size: number of tracks per batch request"
+    "sources": ["musicbrainz"],
+    "batch_size": 50
   },
   "pipeline": {
-    "default_stages": [1, 3, 4],
-    "description": "Stages to run when no --stage arguments provided"
+    "default_stages": [1, 3, 4]
   }
 }

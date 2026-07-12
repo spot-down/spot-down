@@ -6,7 +6,7 @@ import argparse
 import subprocess
 from pathlib import Path
 
-CONFIG_FILE = "config.yaml"
+CONFIG_FILES = ["config.yml", "config.yaml", "config.json"]
 SONG_SOURCES = "song_sources.txt"
 PLAYLISTS_FILE = "playlists.txt"
 PLAYLIST_INDEX = "playlist_index.json"
@@ -15,28 +15,21 @@ PLAYLIST_INDEX = "playlist_index.json"
 def load_config():
     defaults = {
         "provider": "spotify_scraper",
-        "musicbrainz": True,
-        "pipeline": {"default_stages": [1, 3, 4]},
-        "metadata": {"batch_size": 50}
+        "metadata": {"sources": ["musicbrainz"], "batch_size": 50},
+        "pipeline": {"default_stages": [1, 3, 4]}
     }
-    if Path(CONFIG_FILE).exists():
+    for path in CONFIG_FILES:
+        if not Path(path).exists():
+            continue
         try:
-            import yaml
-            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                cfg = yaml.safe_load(f) or {}
+            is_json = path.endswith(".json")
+            with open(path, 'r', encoding='utf-8') as f:
+                cfg = json.load(f) if is_json else __import__("yaml").safe_load(f) or {}
             for k, v in defaults.items():
                 cfg.setdefault(k, v)
             return cfg
         except Exception:
-            pass
-    legacy = Path("config.json")
-    if legacy.exists():
-        try:
-            with open(legacy, 'r', encoding='utf-8') as f:
-                cfg = json.load(f)
-            return cfg
-        except Exception:
-            pass
+            continue
     return defaults
 
 

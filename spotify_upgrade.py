@@ -283,18 +283,19 @@ def get_tracks_single(sp, ids):
 # MAIN UPGRADE
 # ========================
 def main():
-    try:
-        import yaml
-        cfg_path = Path("config.yaml")
+    for cfg_path in [Path("config.yml"), Path("config.yaml"), Path("config.json")]:
         if cfg_path.exists():
-            with open(cfg_path) as f:
-                cfg = yaml.safe_load(f) or {}
-            if cfg.get("provider") != "spotify_api":
-                print("Spotify upgrade skipped: provider is not 'spotify_api'")
-                print("  Set config.yaml provider: spotify_api to use this stage")
-                return
-    except Exception:
-        pass
+            try:
+                is_json = cfg_path.suffix == ".json"
+                with open(cfg_path) as f:
+                    cfg = json.load(f) if is_json else __import__("yaml").safe_load(f) or {}
+                if cfg.get("provider") != "spotify_api":
+                    print("Spotify upgrade skipped: provider is not 'spotify_api'")
+                    print("  Set provider: spotify_api in config to use this stage")
+                    return
+                break
+            except Exception:
+                continue
 
     state = load_state()
     

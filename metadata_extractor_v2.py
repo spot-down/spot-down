@@ -15,7 +15,7 @@ INPUT_FILE = "song_sources.txt"
 INDEX_FILE = "songs_index.csv"
 BASE_DIR = "metadata"
 STATE_FILE = "state.json"
-CONFIG_FILE = "config.yaml"
+CONFIG_FILES = ["config.yml", "config.yaml", "config.json"]
 BATCH_SIZE = 50
 
 def safe(s):
@@ -34,26 +34,20 @@ def save_state(state):
 def load_config():
     defaults = {
         "provider": "spotify_scraper",
-        "musicbrainz": True,
-        "metadata": {"batch_size": 50}
+        "metadata": {"sources": ["musicbrainz"], "batch_size": 50}
     }
-    if Path(CONFIG_FILE).exists():
+    for path in CONFIG_FILES:
+        if not Path(path).exists():
+            continue
         try:
-            import yaml
-            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                cfg = yaml.safe_load(f) or {}
+            is_json = path.endswith(".json")
+            with open(path, 'r', encoding='utf-8') as f:
+                cfg = json.load(f) if is_json else __import__("yaml").safe_load(f) or {}
             for k, v in defaults.items():
                 cfg.setdefault(k, v)
             return cfg
         except Exception:
-            pass
-    legacy = Path("config.json")
-    if legacy.exists():
-        try:
-            with open(legacy, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            pass
+            continue
     return defaults
 
 def load_existing_ids():
@@ -142,7 +136,8 @@ def main(provider_override=None):
     if "batch_size" in config.get("metadata", {}):
         BATCH_SIZE = config["metadata"]["batch_size"]
 
-    use_musicbrainz = config.get("musicbrainz", False)
+    metadata_sources = config.get("metadata", {}).get("sources", [])
+    use_musicbrainz = "musicbrainz" in metadata_sources
 
     if provider_override:
         provider_name = provider_override
