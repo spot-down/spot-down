@@ -18,6 +18,8 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # ========================
 # STATE HELPERS
 # ========================
+MAX_RETRIES = 3
+
 def load_state():
     """Load state from JSON file"""
     if os.path.exists(STATE_FILE):
@@ -29,6 +31,27 @@ def save_state(state):
     """Save state to JSON file"""
     with open(STATE_FILE, 'w', encoding='utf-8') as f:
         json.dump(state, f, indent=2)
+
+def set_csv_status(track_id, new_status):
+    """Set the status column in CSV for a track."""
+    try:
+        if not os.path.exists(INDEX_FILE):
+            return
+        rows = []
+        with open(INDEX_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            for row in reader:
+                if row.get("id") == track_id:
+                    row["status"] = new_status
+                rows.append(row)
+        if rows:
+            with open(INDEX_FILE, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+    except Exception as e:
+        print(f"Warning: Failed to update CSV status: {e}")
 
 # ------------------------
 # AUDIO VALIDATION
@@ -265,119 +288,108 @@ def update_csv_status(track_id, new_status):
 def main():
     """Main entry point for audio downloader"""
     state = load_state()
-    
-    # Initialize downloader state
+
     if "downloader" not in state:
         state["downloader"] = {
             "last_downloaded_id": None,
             "downloaded_count": 0,
             "failed_downloads": [],
             "permanent_failures": [],
+            "retry_counts": {},
             "last_error": None,
             "timestamp": None
         }
-    
+
     dl_state = state["downloader"]
-    
+
+    if "retry_counts" not in dl_state:
+        dl_state["retry_counts"] = {}
+
     print("Loading CSV index...")
     rows = list(load_index())
     print(f"Total rows: {len(rows)}\n")
-    
+
     if not rows:
         print("No rows to download!")
         return
-    
-    # On fresh run (no last_downloaded_id), clear transient failures
-    # This allows retrying failed tracks on next run
-    if not dl_state["last_downloaded_id"]:
-        # First run - start fresh
-        initial_run = True
-    else:
-        # Resuming - preserve state but clear transient failures for retry
-        initial_run = False
-        print(f"Resuming from: {dl_state['last_downloaded_id']}")
-        print(f"Previous run had {len(dl_state['failed_downloads'])} failures\n")
-        # Move failed_downloads to pending retry, but keep permanent failures
-        dl_state["failed_downloads"] = []
-    
-    # Resume from last processed track
+
     start_idx = 0
     if dl_state["last_downloaded_id"]:
         for i, row in enumerate(rows):
             if row["id"] == dl_state["last_downloaded_id"]:
                 start_idx = i + 1
                 break
-    
-    # Process each track
+        print(f"Resuming from: {dl_state['last_downloaded_id']}")
+
     for idx, item in enumerate(rows[start_idx:], start=start_idx):
         track_id = item["id"]
         track_status = item.get("status", "unknown")
-        
-        # Skip if already processed (downloaded or tagged)
+
         if track_status in ["downloaded", "tagged"]:
             print(f"[{idx+1}/{len(rows)}] {track_id}...", end=" ", flush=True)
             print(f"SKIP ({track_status})")
             continue
-        
-        # Skip if previously failed at download
+
         if track_status == "download_failed":
             print(f"[{idx+1}/{len(rows)}] {track_id}...", end=" ", flush=True)
             print(f"SKIP (download_failed)")
             continue
-        
+
+        if track_id in dl_state.get("permanent_failures", []):
+            retry_count = dl_state["retry_counts"].get(track_id, 0)
+            if retry_count >= MAX_RETRIES:
+                print(f"[{idx+1}/{len(rows)}] {track_id}...", end=" ", flush=True)
+                print(f"SKIP (exhausted {MAX_RETRIES} retries)")
+                continue
+
         print(f"[{idx+1}/{len(rows)}] {track_id}...", end=" ", flush=True)
-        
+
         try:
             meta_path = item["meta_path"]
             track_folder = os.path.dirname(meta_path)
-            
+
             with open(meta_path, encoding="utf-8") as mf:
                 meta = json.load(mf)
 
             download_track(meta, track_folder)
-            
-            # Update CSV status to reflect successful download
+
             update_csv_status(track_id, "downloaded")
-            
-            # Update state on success
+
             dl_state["last_downloaded_id"] = track_id
             dl_state["downloaded_count"] += 1
             dl_state["timestamp"] = datetime.now().isoformat()
-            
-            # If this was a previously failed track, remove from permanent failures
+
             if track_id in dl_state.get("permanent_failures", []):
                 dl_state["permanent_failures"].remove(track_id)
-            
+            dl_state["retry_counts"].pop(track_id, None)
+
             print("OK")
-            
+
         except Exception as e:
             print(f"ERROR: {e}")
-            # Track immediate failures for this run (avoid duplicates)
             if track_id not in dl_state["failed_downloads"]:
                 dl_state["failed_downloads"].append(track_id)
             dl_state["last_error"] = str(e)
-        
-        # Save state after each track
+
+            retry_count = dl_state["retry_counts"].get(track_id, 0) + 1
+            dl_state["retry_counts"][track_id] = retry_count
+
+            if retry_count >= MAX_RETRIES:
+                if track_id not in dl_state.get("permanent_failures", []):
+                    dl_state.setdefault("permanent_failures", []).append(track_id)
+                set_csv_status(track_id, "download_failed")
+
         save_state(state)
         time.sleep(0.1)
-    
+
     print(f"\nDownload complete!")
     print(f"Downloaded: {dl_state['downloaded_count']}")
     if dl_state['failed_downloads']:
         print(f"Failed this run: {len(dl_state['failed_downloads'])}")
     if dl_state.get('permanent_failures'):
         print(f"Permanent failures: {len(dl_state['permanent_failures'])}")
-    
-    # Move current failures to permanent if they persist
-    if dl_state['failed_downloads']:
-        for track_id in dl_state['failed_downloads']:
-            if track_id not in dl_state.get('permanent_failures', []):
-                if 'permanent_failures' not in dl_state:
-                    dl_state['permanent_failures'] = []
-                dl_state['permanent_failures'].append(track_id)
-        # Clear for next run's fresh attempt
-        dl_state['failed_downloads'] = []
-    
+
+    dl_state["failed_downloads"] = []
     save_state(state)
 
 if __name__ == "__main__":

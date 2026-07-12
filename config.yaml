@@ -1,0 +1,12 @@
+provider: spotify_scraper
+
+spotify:
+  api:
+    client_id: ""
+    client_secret: ""
+
+metadata:
+  batch_size: 50
+
+pipeline:
+  default_stages: [1, 3, 4]

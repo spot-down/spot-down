@@ -1,0 +1,9 @@
+# System dependencies (install via brew/apt/choco):
+#   ffmpeg (includes ffprobe) - for audio processing
+#   Python 3.7+
+
+spotipy>=2.24.0
+mutagen>=1.47.0
+yt-dlp>=2024.12.0
+requests>=2.31.0
+pyyaml>=6.0

@@ -32,6 +32,8 @@ songs_index.csv
 songs_index.jsonl
 state.json
 song_sources.txt
+playlists.txt
+playlist_index.json
 
 # Logs
 *.log

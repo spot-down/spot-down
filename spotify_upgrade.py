@@ -5,6 +5,7 @@ import requests
 import base64
 import time
 from datetime import datetime
+from pathlib import Path
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
 from spotipy.exceptions import SpotifyException
@@ -282,6 +283,19 @@ def get_tracks_single(sp, ids):
 # MAIN UPGRADE
 # ========================
 def main():
+    try:
+        import yaml
+        cfg_path = Path("config.yaml")
+        if cfg_path.exists():
+            with open(cfg_path) as f:
+                cfg = yaml.safe_load(f) or {}
+            if cfg.get("provider") != "spotify_api":
+                print("Spotify upgrade skipped: provider is not 'spotify_api'")
+                print("  Set config.yaml provider: spotify_api to use this stage")
+                return
+    except Exception:
+        pass
+
     state = load_state()
     
     # Run auto-test first
