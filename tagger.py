@@ -202,6 +202,10 @@ def main():
         }
     
     tagger_state = state["tagger"]
+    # Reset failed_ids for this run so we only show current failures
+    tagger_state["failed_ids"] = []
+    tagger_state["renamed_count"] = 0
+    tagger_state["tagged_count"] = 0
     
     print("Loading track index...")
     rows = load_index()
