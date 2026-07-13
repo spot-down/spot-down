@@ -206,11 +206,35 @@ def main():
     print("Loading track index...")
     rows = load_index()
     print(f"Total tracks: {len(rows)}\n")
-    
+
     if not rows:
         print("No tracks to process!")
         return
-    
+
+    # Pre-scan data/ for all existing MP3 files
+    existing_by_id = {}       # track_id -> filename
+    existing_by_sanitized = {}  # sanitized basename -> filename
+    all_mp3_files = []
+    if os.path.isdir(INPUT_DIR):
+        for f in os.listdir(INPUT_DIR):
+            if not f.endswith(".mp3"):
+                continue
+            all_mp3_files.append(f)
+            base = os.path.splitext(f)[0]
+            existing_by_sanitized[base] = f
+            # Check if filename starts with a track_id (22 alphanumeric chars)
+            tid_candidate = f.split(".")[0]
+            if len(tid_candidate) == 22 and tid_candidate.isalnum():
+                existing_by_id[tid_candidate] = f
+            else:
+                # Also check for partial rename (track_id at start before separator)
+                for part in f.split(" -"):
+                    if len(part) == 22 and part.isalnum():
+                        existing_by_id[part] = f
+                        break
+
+    print(f"Found {len(all_mp3_files)} MP3 files in data/\n")
+
     # Resume from last processed track
     start_idx = 0
     if tagger_state["last_processed_id"]:
@@ -218,7 +242,7 @@ def main():
             if row["id"] == tagger_state["last_processed_id"]:
                 start_idx = i + 1
                 break
-    
+
     # Process each track
     for idx, row in enumerate(rows[start_idx:], start=start_idx):
         track_id = row["id"]
@@ -231,52 +255,48 @@ def main():
             tagger_state["last_processed_id"] = track_id
             save_state(state)
             continue
-        
+
         try:
-            # Load metadata first (needed for filename construction)
+            # Load metadata
             meta_path = row["meta_path"]
             meta = None
             if os.path.exists(meta_path):
                 with open(meta_path, encoding="utf-8") as mf:
                     meta = json.load(mf)
-            
-            # Find the MP3 file
-            mp3_file = None
-            mp3_filename = f"{track_id}.mp3"
-            mp3_path = os.path.join(INPUT_DIR, mp3_filename)
-            
-            if os.path.exists(mp3_path):
-                mp3_file = mp3_filename
-            else:
-                # Check for files starting with track_id (partial rename)
-                for f in os.listdir(INPUT_DIR):
-                    if f.startswith(track_id) and f.endswith(".mp3"):
-                        mp3_file = f
-                        break
-            
-            # Fallback: try sanitized Artist - Title.mp3
-            if not mp3_file and meta:
-                artist = meta.get("artist", ["Unknown"])[0] if isinstance(meta.get("artist"), list) else meta.get("artist", "Unknown")
-                title = meta.get("title", "Unknown")
-                expected = f"{sanitize_filename(artist)} - {sanitize_filename(title)}.mp3"
-                expected_path = os.path.join(INPUT_DIR, expected)
-                if os.path.exists(expected_path):
-                    mp3_file = expected
-            
+
+            # Find the MP3 file using pre-scanned lookup
+            mp3_file = existing_by_id.get(track_id)
+
+            if not mp3_file:
+                if meta:
+                    artist = meta.get("artist", ["Unknown"])[0] if isinstance(meta.get("artist"), list) else meta.get("artist", "Unknown")
+                    title = meta.get("title", "Unknown")
+                else:
+                    artist = row.get("artist", "Unknown")
+                    title = row.get("title", "Unknown")
+                base = f"{sanitize_filename(artist)} - {sanitize_filename(title)}"
+                mp3_file = existing_by_sanitized.get(base)
+                # Check for counter-suffixed variant if exact match not found
+                if not mp3_file:
+                    for b, f in existing_by_sanitized.items():
+                        if b == base or b.startswith(base + " ("):
+                            mp3_file = f
+                            break
+
             if not mp3_file:
                 print("MP3 not found")
                 tagger_state["failed_ids"].append(track_id)
                 tagger_state["last_processed_id"] = track_id
                 save_state(state)
                 continue
-            
+
             if not meta:
                 print(f"Metadata not found: {meta_path}")
                 tagger_state["failed_ids"].append(track_id)
                 tagger_state["last_processed_id"] = track_id
                 save_state(state)
                 continue
-            
+
             track_folder = os.path.dirname(meta_path)
             
             # Rename and tag
