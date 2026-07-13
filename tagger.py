@@ -233,7 +233,14 @@ def main():
             continue
         
         try:
-            # Check if MP3 exists in data/ directory
+            # Load metadata first (needed for filename construction)
+            meta_path = row["meta_path"]
+            meta = None
+            if os.path.exists(meta_path):
+                with open(meta_path, encoding="utf-8") as mf:
+                    meta = json.load(mf)
+            
+            # Find the MP3 file
             mp3_file = None
             mp3_filename = f"{track_id}.mp3"
             mp3_path = os.path.join(INPUT_DIR, mp3_filename)
@@ -241,17 +248,17 @@ def main():
             if os.path.exists(mp3_path):
                 mp3_file = mp3_filename
             else:
-                # Check for files starting with track_id
+                # Check for files starting with track_id (partial rename)
                 for f in os.listdir(INPUT_DIR):
                     if f.startswith(track_id) and f.endswith(".mp3"):
                         mp3_file = f
                         break
             
-            # Fallback: try Artist - Title.mp3 for already-renamed files
-            if not mp3_file and row.get("artist") and row.get("title"):
-                artist = row["artist"]
-                title = row["title"]
-                expected = f"{artist} - {title}.mp3"
+            # Fallback: try sanitized Artist - Title.mp3
+            if not mp3_file and meta:
+                artist = meta.get("artist", ["Unknown"])[0] if isinstance(meta.get("artist"), list) else meta.get("artist", "Unknown")
+                title = meta.get("title", "Unknown")
+                expected = f"{sanitize_filename(artist)} - {sanitize_filename(title)}.mp3"
                 expected_path = os.path.join(INPUT_DIR, expected)
                 if os.path.exists(expected_path):
                     mp3_file = expected
@@ -263,17 +270,12 @@ def main():
                 save_state(state)
                 continue
             
-            # Load metadata
-            meta_path = row["meta_path"]
-            if not os.path.exists(meta_path):
+            if not meta:
                 print(f"Metadata not found: {meta_path}")
                 tagger_state["failed_ids"].append(track_id)
                 tagger_state["last_processed_id"] = track_id
                 save_state(state)
                 continue
-            
-            with open(meta_path, encoding="utf-8") as mf:
-                meta = json.load(mf)
             
             track_folder = os.path.dirname(meta_path)
             
