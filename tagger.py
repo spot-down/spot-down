@@ -272,9 +272,14 @@ def main():
         track_status = row.get("status", "unknown")
         print(f"[{idx+1}/{len(rows)}] {track_id}...", end=" ", flush=True)
 
-        # Skip already-tagged tracks
+        # Skip already-tagged or not-yet-downloaded tracks
         if track_status == "tagged":
             print(f"SKIP (tagged)")
+            tagger_state["last_processed_id"] = track_id
+            save_state(state)
+            continue
+        if track_status == "spotify_metadata_fetched":
+            print(f"SKIP (not downloaded)")
             tagger_state["last_processed_id"] = track_id
             save_state(state)
             continue
