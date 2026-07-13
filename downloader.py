@@ -313,11 +313,18 @@ def main():
 
     start_idx = 0
     if dl_state["last_downloaded_id"]:
+        found = False
         for i, row in enumerate(rows):
             if row["id"] == dl_state["last_downloaded_id"]:
                 start_idx = i + 1
+                found = True
                 break
-        print(f"Resuming from: {dl_state['last_downloaded_id']}")
+        if found and start_idx >= len(rows):
+            start_idx = 0
+            dl_state["last_downloaded_id"] = None
+            dl_state["downloaded_count"] = 0
+        elif found:
+            print(f"Resuming from: {dl_state['last_downloaded_id']}")
 
     for idx, item in enumerate(rows[start_idx:], start=start_idx):
         track_id = item["id"]

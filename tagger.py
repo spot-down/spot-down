@@ -265,10 +265,17 @@ def main():
     # Resume from last processed track
     start_idx = 0
     if tagger_state["last_processed_id"]:
+        found = False
         for i, row in enumerate(rows):
             if row["id"] == tagger_state["last_processed_id"]:
                 start_idx = i + 1
+                found = True
                 break
+        if found and start_idx >= len(rows):
+            start_idx = 0
+            tagger_state["last_processed_id"] = None
+            tagger_state["renamed_count"] = 0
+            tagger_state["tagged_count"] = 0
 
     # Process each track
     for idx, row in enumerate(rows[start_idx:], start=start_idx):
