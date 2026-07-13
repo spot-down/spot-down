@@ -235,6 +235,29 @@ def main():
 
     print(f"Found {len(all_mp3_files)} MP3 files in data/\n")
 
+    # Reconcile: reset stale statuses for files that no longer exist
+    reconciled = 0
+    for row in rows:
+        if row.get("status") in ("downloaded", "tagged"):
+            tid = row["id"]
+            if tid in existing_by_id:
+                continue
+            artist = row.get("artist", "Unknown")
+            title = row.get("title", "Unknown")
+            base = f"{sanitize_filename(artist)} - {sanitize_filename(title)}"
+            if base in existing_by_sanitized:
+                continue
+            row["status"] = "spotify_metadata_fetched"
+            reconciled += 1
+
+    if reconciled:
+        fieldnames = rows[0].keys()
+        with open(INDEX_FILE, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"Reset {reconciled} stale statuses to 'spotify_metadata_fetched' (files missing)\n")
+
     # Resume from last processed track
     start_idx = 0
     if tagger_state["last_processed_id"]:
