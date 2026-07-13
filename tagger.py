@@ -44,6 +44,26 @@ def sanitize_filename(filename):
     sanitized = re.sub(r'\s+', ' ', sanitized)
     return sanitized
 
+def set_csv_status(track_id, new_status):
+    try:
+        if not os.path.exists(INDEX_FILE):
+            return
+        rows = []
+        with open(INDEX_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            for row in reader:
+                if row.get("id") == track_id:
+                    row["status"] = new_status
+                rows.append(row)
+        if rows:
+            with open(INDEX_FILE, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+    except Exception as e:
+        print(f"Warning: Failed to update CSV status: {e}")
+
 # ========================
 # ID3 TAGGING
 # ========================
@@ -202,11 +222,18 @@ def main():
     # Process each track
     for idx, row in enumerate(rows[start_idx:], start=start_idx):
         track_id = row["id"]
+        track_status = row.get("status", "unknown")
         print(f"[{idx+1}/{len(rows)}] {track_id}...", end=" ", flush=True)
+
+        # Skip already-tagged tracks
+        if track_status == "tagged":
+            print(f"SKIP (tagged)")
+            tagger_state["last_processed_id"] = track_id
+            save_state(state)
+            continue
         
         try:
             # Check if MP3 exists in data/ directory
-            # First check for original track_id.mp3
             mp3_file = None
             mp3_filename = f"{track_id}.mp3"
             mp3_path = os.path.join(INPUT_DIR, mp3_filename)
@@ -214,12 +241,20 @@ def main():
             if os.path.exists(mp3_path):
                 mp3_file = mp3_filename
             else:
-                # If not found, check for any files starting with track_id
-                # (in case already partially renamed)
+                # Check for files starting with track_id
                 for f in os.listdir(INPUT_DIR):
                     if f.startswith(track_id) and f.endswith(".mp3"):
                         mp3_file = f
                         break
+            
+            # Fallback: try Artist - Title.mp3 for already-renamed files
+            if not mp3_file and row.get("artist") and row.get("title"):
+                artist = row["artist"]
+                title = row["title"]
+                expected = f"{artist} - {title}.mp3"
+                expected_path = os.path.join(INPUT_DIR, expected)
+                if os.path.exists(expected_path):
+                    mp3_file = expected
             
             if not mp3_file:
                 print("MP3 not found")
@@ -248,6 +283,7 @@ def main():
             if success:
                 tagger_state["renamed_count"] += 1
                 tagger_state["tagged_count"] += 1
+                set_csv_status(track_id, "tagged")
                 print("OK")
             else:
                 tagger_state["failed_ids"].append(track_id)
