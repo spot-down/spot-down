@@ -177,8 +177,7 @@ def is_track_already_downloaded(track_id, meta):
         with open(INDEX_FILE, 'r', newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if row.get("id") == track_id:
-                    # Track is in index - assume already processed
+                if row.get("id") == track_id and row.get("status") in ("downloaded", "tagged"):
                     return True
     
     return False
@@ -202,8 +201,7 @@ def download_track(meta, track_folder):
 
     url = find_best_match(meta["search_query"], meta["duration_ms"])
     if not url:
-        print("No match:", meta["search_query"])
-        return
+        raise Exception(f"No YouTube match for: {meta['search_query']}")
 
     ydl_opts = {
         "format": "bestaudio/best",
